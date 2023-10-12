@@ -33,3 +33,5 @@ export default function Spinner({ on }) {
 Spinner.propTypes = {
   on: PT.bool.isRequired,
 }
+
+
