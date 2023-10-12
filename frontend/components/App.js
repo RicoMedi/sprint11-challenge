@@ -6,6 +6,7 @@ import Message from "./Message";
 import ArticleForm from "./ArticleForm";
 import Spinner from "./Spinner";
 import axios from "axios";
+import axiosWithAuth from "../axios";
 const articlesUrl = "http://localhost:9000/api/articles";
 const loginUrl = "http://localhost:9000/api/login";
 
@@ -15,12 +16,11 @@ export default function App() {
   const [articles, setArticles] = useState([]);
   const [currentArticleId, setCurrentArticleId] = useState();
   const [spinnerOn, setSpinnerOn] = useState(false);
-  const [credentials, setCredentials] = useState({
-    username: "",
-    password: "",
-  });
+  
+  const reset = true;
   // ✨ Research `useNavigate` in React Router v.6
   const navigate = useNavigate();
+
   const redirectToLogin = () => {
     navigate("/");
   };
@@ -36,13 +36,16 @@ export default function App() {
     setArticles([]);
   };
 
-  const login = () => {
-    setSpinnerOn(true);
+  const login = ({ username, password }) => {
+    const credentials = {
+      username: username,
+      password: password,
+    };
     axios
       .post(loginUrl, credentials)
       .then((res) => {
-        setMessage(res.message);
-        localStorage.setItem("token", res.token);
+        setMessage(res.data.message);
+        localStorage.setItem("token", res.data.token);
         redirectToArticles();
         setSpinnerOn(false);
       })
@@ -53,15 +56,18 @@ export default function App() {
       });
   };
 
-  const getArticles = () => {
-    // ✨ implement
-    // We should flush the message state, turn on the spinner
-    // and launch an authenticated request to the proper endpoint.
-    // On success, we should set the articles in their proper state and
-    // put the server success message in its proper state.
-    // If something goes wrong, check the status of the response:
-    // if it's a 401 the token might have gone bad, and we should redirect to login.
-    // Don't forget to turn off the spinner!
+  const getArticles = (reset) => {
+    setSpinnerOn(true);
+
+    axiosWithAuth()
+      .get(articlesUrl)
+      .then((res) => {
+        if(!reset){
+           setMessage(res.data.message);
+        }
+        setArticles(res.data.articles);
+        setSpinnerOn(false);
+      });
   };
 
   const postArticle = (article) => {
@@ -69,22 +75,59 @@ export default function App() {
     // The flow is very similar to the `getArticles` function.
     // You'll know what to do! Use log statements or breakpoints
     // to inspect the response from the server.
+    setSpinnerOn(true);
+    return axiosWithAuth()
+      .post(articlesUrl, article)
+      .then((res) => {
+        getArticles(reset);
+        setMessage(res.data.message);
+        setSpinnerOn(false);
+      })
+      .catch((err) => {
+        setSpinnerOn(false);
+        console.error(err);
+      });
   };
 
   const updateArticle = ({ article_id, article }) => {
-    // ✨ implement
-    // You got this!
+    setSpinnerOn(true);
+    return axiosWithAuth()
+      .put(`${articlesUrl}/${article_id}`, article)
+      .then((res) => {
+        getArticles(reset);
+        setMessage(res.data.message);
+        setCurrentArticleId();
+        setSpinnerOn(false);
+      })
+      .catch((err) => {
+        setSpinnerOn(false);
+        console.error(err);
+      });
   };
 
   const deleteArticle = (article_id) => {
     // ✨ implement
+    setSpinnerOn(true);
+    
+    return axiosWithAuth()
+      .delete(`${articlesUrl}/${article_id}`)
+      .then((res) => {
+        getArticles(reset);
+        setMessage(res.data.message);
+        setSpinnerOn(false);
+      })
+      .catch((err) => {
+        console.error(err);
+        setSpinnerOn(false);
+      });
   };
 
+  
   return (
     // ✨ fix the JSX: `Spinner`, `Message`, `LoginForm`, `ArticleForm` and `Articles` expect props ❗
     <>
-      <Spinner on={setSpinnerOn} />
-      <Message />
+      <Spinner on={spinnerOn} />
+      <Message message={message} />
       <button id="logout" onClick={logout}>
         Logout from app
       </button>
@@ -106,8 +149,19 @@ export default function App() {
             path="articles"
             element={
               <>
-                <ArticleForm />
-                <Articles />
+                <ArticleForm
+                  articles={articles}
+                  postArticle={postArticle}
+                  currentArticleId={currentArticleId}
+                  setCurrentArticleId={setCurrentArticleId}
+                  updateArticle={updateArticle}
+                />
+                <Articles
+                  articles={articles}
+                  getArticles={getArticles}
+                  deleteArticle={deleteArticle}
+                  setCurrentArticleId={setCurrentArticleId}
+                />
               </>
             }
           />
